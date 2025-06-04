@@ -1,0 +1,154 @@
+---
+title: "STAT 3303 Final"
+author: "Jacob Depinet.23"
+header-includes:
+    - \usepackage{setspace}\doublespacing
+date: "2024-04-20"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Written Report
+
+## Context
+
+K9C9 is a growing strand of influenza in 10 countries across the world. In order to test if K9C9 is present within an individual an inexpensive test called EZK was developed as well as a perfect diagnostic test. Within each of the 10 countries, 100 subjects were randomly selected and were administered both tests. In order to estimate the probability of a subject having the virus, a Bayesian hierarchical model using the EZK results as a parametric function of the perfect test. 
+
+## Modeling
+In this context, a Random Effects Model (REM) was most appropriate. REMs are types of hierarchical models where the unknown states of random variables depend on an "overall" parameter that is common. Given that the outcome of perfect diagnostic test is conditioned on $\alpha_c$ and $\beta_c$, and $\alpha_c$ and $\beta_c$ are also random variables that can be assumed to have some overarching mechanism that determines their distribution, a REM was the clear choice. Therefore the testing scenario can be modeled as follows:
+
+\begin{center}
+$$Y_{sc} | \alpha_c, \beta_c \sim Bernoulli(\theta_c) $$
+$$logit(\theta_c) = \alpha_c + \beta_c x_{sc}$$
+$$p(\textbf{y} | \alpha_c, \beta_c) = \prod_{c = 1}^{N_c} \prod_{s = 1}^{N_s} p(y_{sc} | \alpha_c, 
+\beta_c) $$
+
+$$
+p(\alpha_c, \beta_c | \mu_\alpha, \mu_\beta, \tau_\alpha, \tau_\beta) = \prod_{c = 1}^{N_c} p(\alpha_c | \mu_\alpha, \tau_\alpha) p(\beta_c | \mu_\beta, \tau_\beta)
+$$
+\end{center}
+Where
+\begin{center}
+$$\alpha_c = (\alpha_1, ... ,\alpha_{N_c})\quad \text{and} \quad \beta_c = (\beta_1,...,\beta_{Nc})$$ \end{center}
+\begin{center}
+$$\mu_{\alpha} \sim Normal(-0.5, 0.5)$$
+$$\mu_{\beta} \sim Normal(1.5, 0.5)$$
+$$\tau_{\alpha} \sim Uniform(0, 10)$$
+$$\tau_{\beta} \sim Uniform(0, 10)$$
+$$\alpha_c \sim Normal(\mu_\alpha, \tau_\alpha)$$
+$$\beta_c \sim Normal(\mu_\beta, \tau_\beta)$$ \end{center}
+
+Where $y_{sc}$ is the outcome of the perfect diagnostic test for subject $s$ in country $c$, $x_{sc}$ is the result of the EZK test (0 for negative, 1 for positive), $\alpha_c$ is false positive rate of the EZK test for country $c$, $\beta_c$ is the difference between the false positive rate of country $c$ and the true positive rate of country $c$, $\theta_c$ is the true positive rate of country $c$, $N_c$ is the number of countries which is 10, and $N_s$ is the number of subject which is 10. $\mu_\alpha$ is the expected average false positive rate governing all countries and $\tau_\alpha$ is the precision of the false positive rate governing all countries. $\mu_\beta$ is the expected difference between false positive rate and true positive rate governing all countries and $\tau_\beta$ is the precision of this difference governing all countries. 
+
+When examining the prior distributions, $\mu_\alpha$ and $\beta_\alpha$ are normally distributed. I have the means where I would imagine the false positive rate ($\alpha$) and where I would expect the difference between the false positive rate and the true positive rate ($\beta$). I am not a subject area expert, so these are mere guesses. Their respective variances are chosen to be diffuse in this context, where the domain of $\theta_c$ ranges from 0 to 1. With $\tau_\alpha$ and $\tau_\beta$, a very diffuse distribution is given as I am not a subject matter expert. 
+
+The assumption is made that all the $\alpha$ values are independent of one another and all the $\beta$ values are independent of one another; the $\alpha$ values are conditionally dependent on $\mu_\alpha$ and $\tau_\alpha$; and the $\beta$ values are conditionally dependent on $\mu_\beta$ and $\tau_\beta$
+
+## Directed Acyclic Graph (DAG)
+Directed Acyclic Graphs (DAGs) are a useful visualization technique to show the conditional dependence relationships between variables. To visualize the relationships in the hierarchical model, the following DAG is provided on the next page.
+
+![DAG](STAT 3303 FINAL DAG.jpg)
+
+
+## Model Set-Up and Computation
+Using Just Another Gibbs Sampler (JAGS), the model was ran. $\alpha_c$ and $\beta_c$ were initialized to 0, $\mu_\alpha$ to 0, $\mu_\beta$ to 1, and $\tau_\alpha$ and $\tau_\beta$ to 0.1. This was done on 15000 iterations with 5000 burn in iterations. 5000 samples were used as adaptation samples. 2 Markov chains were used on each $\alpha_c$ and $\beta_c$. 
+
+Trace plots are provided in the appendix. Upon there examination, they are mixing well. There appears to be a constant variance and constant mean within each trace plot for $\alpha_c$ and $\beta_c$. They appear to pass the fat marker test. Of the two chains that were run for each prior, they converge to the same point which is also an indicator of the Markov chain working well. The density plots also appear appropriate as they appear normally distributed.  
+
+\newpage
+## Interpretations
+When looking at addressing the question of how effective the diagnostic ability is of EZK, lower $\alpha_c$ values are desired as these represent the false positives, and higher $\beta_c$ are desired as these represent the different between the true positivity rate and the high positivity rate. 
+
+The results from the JAGS model show that countries 2, 9, and 10, which correspond to countries B, I, and J, have the lowest $\alpha_c$ values and countries and 1, 7, and 9, which correspond to countries A, G, and I, have the highest $\beta_c$ values. These are countries then where the results from EZK are relatively reliable. Conversely, the countries that have the highest $\alpha_c$ values are 1, 6, and 7, which correspond to countries A, F, and G, and the lowest $\beta_c$ values are 5, 6, and 8, which correspond to countries E, F, and H. These are the countries where the EZK tests are relatively most unreliable. It is important to note that I am interpreting these results relativistically and not directly. The mean values of $\alpha_c$ and $\beta_c$ are on a logit scale and need to be transformed to get more direct results. However, because logit transformations are monotonic, these values can be compared amongst one another. 
+
+Specific mean values found from the JAGS model are provided in the appendix. 
+
+
+\newpage
+## Appendix
+
+```{r}
+#Read Data
+flu <- read.delim("flu.txt")
+```
+
+# Jags
+```{r}
+#Libraries
+require(coda)
+require(rjags)
+```
+
+```{r, out.width= 5.0}
+#initialize variables
+nc <- 10
+ns <- 100
+y <- matrix(flu[,1], nrow = ns, ncol = nc, byrow = FALSE)
+x1 <- matrix(flu[,2], nrow = ns, ncol = nc, byrow = FALSE)
+
+#Initialize parameters
+myinit <- list(alpha_c = rep(0, nc),
+               beta_c = rep(0, nc),
+               mu_alpha = 0,
+               mu_beta = 1,
+               tau_alpha = 0.1,
+               tau_beta = 0.1)
+
+#Iterations
+niters <- 15000
+nburns <- 5000
+nadapt <- 5000
+nchains <- 2
+
+#Specify JAGS Model
+mymodel <- "model {
+
+
+#Likelihood 
+ for(i in 1:ns){
+   for(j in 1:nc){
+     y[i,j] ~ dbern(theta_c[i,j])
+     logit(theta_c[i,j]) <- alpha_c[j] + beta_c[j] * x1[i,j]
+
+   }
+ }
+ 
+#Priors make to vector, 
+mu_alpha ~ dnorm(0.1, 0.5)
+mu_beta ~ dnorm(0.8, 0.5)
+tau_alpha ~ dunif(0, 10)
+tau_beta ~ dunif(0, 10)
+
+for(j in 1:nc){
+alpha_c[j] ~ dnorm(mu_alpha, tau_alpha) 
+beta_c[j] ~ dnorm(mu_beta, tau_beta)
+}
+
+}"
+
+#fit and run jags
+fit = jags.model(textConnection(mymodel),
+                 data = list(x1 = x1, y = y, nc = nc, ns = ns),
+                 inits = myinit,
+                 n.chains = nchains,
+                 n.adapt = nadapt)
+
+fit.samples <- coda.samples(fit, c("alpha_c", "beta_c"), n.iter = niters)
+
+#View results
+summary(window(fit.samples, start = nburns + nadapt))
+```
+
+# Plots
+
+```{r}
+# Adjust plot sizes
+par(pin = c(3, 0.4))
+
+# Plot
+plot(window(fit.samples, start = nburns + nadapt))
+```
+
