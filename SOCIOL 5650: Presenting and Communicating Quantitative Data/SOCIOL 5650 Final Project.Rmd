@@ -1,0 +1,262 @@
+---
+title: "SOCIOL 5650 Final Project"
+author: "Jacob Depinet.23"
+date: "2024-03-20"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Students will assess a research question by illustrating data that is relevant to their question. More specifically, students will develop data visualizations and give a presentation describing their research question, the data they used, and their visualizations in terms of their research question. Students may pick whatever topic they want to study, as long as there is data available on the topic. Students are encouraged to talk to me as soon as they have a topic so that we can brainstorm data sources. For the project, students need to identify a clear outcome, or dependent variable, and a predictor or small set of predictors. For example, students might study the disparate impacts of COVID-19 by race. In this case, some COVID outcome (could be deaths, infections, unemployment) is the dependent variable and race is the independent variable. The task is then to visualize the patterns in the data and describe what is going on.
+
+```{r}
+#Packages
+library(readxl)
+```
+
+
+```{r}
+#Load Data
+Household_Survey <- read_excel("Household Survey.xlsx")
+```
+
+```{r}
+#Extract relevant columns prior to cleaning
+HouseSubset <- subset(Household_Survey, select = c("crace", "bqualsch", "bprbcrim", "bdesare1", "bdesare2", "bdesare3", "bdesare4", "bdesare5", "bdesare6", "bdesare7", "ddischis", "ddiscblk", "ddiscasn", "ddiscwht", "crespsex", "city", "crespage", "efaminc" ))
+```
+
+```{r}
+#NAs per col
+columnName <- colnames(HouseSubset)
+for(i in 1:ncol(HouseSubset)){
+  print(paste(columnName[i], "NA's: ", sum(is.na(HouseSubset[,i])) / nrow(HouseSubset)))
+}
+```
+We see that BDESARE6, BDESARE7, and DDISCWHT have NAs, but the remaining don't. Let's dive deeper into each of the cities and see if there's one that is cleaned already. 
+
+```{r}
+detroit <- HouseSubset[HouseSubset$city == 1,]
+atlanta <- HouseSubset[HouseSubset$city == 2,]
+LA <- HouseSubset[HouseSubset$city == 3,]
+boston <- HouseSubset[HouseSubset$city == 4,]
+```
+
+```{r}
+#Rerun Missing val loops for each city
+
+print("DETROIT:")
+for(i in 1:ncol(detroit)){
+  print(paste(columnName[i], "NA's: ", sum(is.na(detroit[,i])) / nrow(detroit)))
+}
+
+print("ATLANTA:")
+for(i in 1:ncol(atlanta)){
+  print(paste(columnName[i], "NA's: ", sum(is.na(atlanta[,i])) / nrow(atlanta)))
+}
+
+print("LA:")
+for(i in 1:ncol(LA)){
+  print(paste(columnName[i], "NA's: ", sum(is.na(LA[,i])) / nrow(LA)))
+}
+
+print("BOSTON:")
+for(i in 1:ncol(boston)){
+  print(paste(columnName[i], "NA's: ", sum(is.na(boston[,i])) / nrow(boston)))
+}
+
+```
+City Chosen: BOSTON
+```{r}
+#Drop NA columns in Boston
+bostonFinal <- subset(boston, select = -c(bdesare6, bdesare7))
+```
+
+```{r}
+#Recode Race
+bostonFinal$crace[bostonFinal$crace == 1] <- "White"
+bostonFinal$crace[bostonFinal$crace == 2] <- "Black/African American"
+bostonFinal$crace[bostonFinal$crace == 3] <- "Asian"
+bostonFinal$crace[bostonFinal$crace == 4] <- "American Indian"
+bostonFinal$crace[bostonFinal$crace == 7] <- "Other"
+bostonFinal$crace[bostonFinal$crace == 9] <- "Missing"
+
+```
+
+
+# Reference Map
+```{r}
+#Libraries
+require(ggnetwork)
+require(tidyverse)
+require(ggthemes)
+```
+
+```{r}
+#Build Reference Map
+Cities <- c("Detriot, MI", "Atlanta, GA", "Los Angeles, CA", "Boston, MA")
+long.x <- c(42.3314, 33.7488, 34.0549, 42.3601)
+lat.y <- c(-83.0458, -84.3877, -118.2426, -71.0589)
+cit.coord <- data.frame(Cities, long.x, lat.y)
+
+mapdat <- map_data("state")
+ref <- ggplot(data = mapdat,
+            mapping = aes(x = long, y = lat, group = group)) + 
+  geom_polygon(color = "gray30", linewidth = 0.1, fill = "grey") +
+  coord_map(projection = "mercator", lat0 = 7, lat1 = 85) +
+  guides(fill = "none") + 
+  theme_map() + 
+  ggtitle("Reference Map") +
+  theme(plot.title = element_text(size = 20, hjust = 0.5, vjust = 0.70))
+
+ref + 
+  geom_point(data = cit.coord, aes(x = lat.y, y = long.x, group = Cities), color = "red", size = 4) +
+  geom_text(data = cit.coord, aes(x = lat.y, y = long.x, label = Cities, group = Cities), nudge_y = 1, size = 4) +
+  coord_map("mercator")
+```
+```{r}
+#Map of Just Boston
+bostonName <- "Boston, MA"
+long.x.Boston <- 42.3601
+lat.y.Boston <- -71.0589
+Boston.coord <- data.frame(bostonName, long.x.Boston, lat.y.Boston)
+
+Bosdat <- map_data("county", "massachusetts")
+ref <- ggplot(data =  Bosdat,
+            mapping = aes(x = long, y = lat, group = group)) + 
+  geom_polygon(color = "gray30", linewidth = 0.1, fill = "grey") +
+  coord_map(projection = "alber", lat0 = 42, lat1 = 72) +
+  guides(fill = "none") + 
+  theme_map() + 
+  ggtitle("Map of Boston") +
+  theme(plot.title = element_text(size = 20, hjust = 0.5, vjust = 0.5))
+
+ref + 
+  geom_point(data = Boston.coord, aes(x = lat.y.Boston, y = long.x.Boston, group = bostonName), color = "red", size = 4) +
+  geom_text(data = Boston.coord, aes(x = lat.y.Boston, y = long.x.Boston, label = bostonName, group = bostonName), nudge_y = 0.1, size = 4)
+  #coord_map("mercator")
+```
+
+# Education
+```{r}
+#Get Summary Data for Cleveland Box Plot
+sumData <- subset(bostonFinal, (bqualsch > 0 & bqualsch <5) & !(crace %in% c("Other", "Missing"))) %>%
+  group_by(crace) %>%
+  summarize(means = mean(bqualsch), sds =sd(bqualsch))
+
+ggplot(data = sumData, aes(y = reorder(crace, means), x = means, xmin = means - sds, xmax = means + sds)) + 
+  geom_pointrange() + 
+  theme_bw() +
+  ylab("Race") +
+  xlab("Average Quality of Schools") + 
+  ggtitle("Perceived Quality of Schools By Race in Boston") +
+  labs(fill = NULL) + 
+  coord_cartesian(xlim = c(4,1)) +
+  scale_x_continuous(breaks = seq(1,4,1), labels = c("Excellent", "Good", "Fair", "Poor"))
+```
+# Crime 
+
+```{r}
+#Get Summary Data for Cleveland Box Plot
+sumData <- subset(bostonFinal, (bprbcrim > 0 & bprbcrim <5) & !(crace %in% c("Other", "Missing"))) %>%
+  group_by(crace) %>%
+  summarize(means = mean(bprbcrim), sds =sd(bprbcrim))
+
+ggplot(data = sumData, aes(y = reorder(crace, means), x = means, xmin = means - sds, xmax = means + sds)) + 
+  geom_pointrange() + 
+  theme_bw() +
+  ylab("Race") +
+  xlab("Average Perception of Crime") + 
+  ggtitle("Oftenness Crime and Vandalism in Boston") + coord_cartesian(xlim = c(4,1)) +
+  scale_x_continuous(breaks = seq(1,4,1), labels = c("Always", "Often", "Sometimes", "Never"))
+```
+
+
+# Discrimination
+
+```{r}
+cleanRaceBoston <- bostonFinal[bostonFinal$crace != "Other" & bostonFinal$crace != "Missing" & bostonFinal$ddiscasn < 5 & bostonFinal$ddiscblk < 5 & bostonFinal$ddischis < 5 & bostonFinal$ddiscwht < 5 & bostonFinal$efaminc < 98,]
+
+cleanRaceBoston$crace <- factor(cleanRaceBoston$crace)
+
+ggplot(data = cleanRaceBoston, aes(x = crace, y = ddiscblk)) + 
+  geom_boxplot() +
+  ggtitle("Perceived Discrimination Faced by Black People in Boston") +
+  ylab("Discrimination Experienced") +
+  xlab("Race") +
+  theme_bw() +
+  coord_cartesian(ylim = c(4,1)) +
+  scale_y_continuous(breaks = seq(1,4,1), labels = c("A lot", "Some", "Only a Little", "None at All"))
+
+ggplot(data = cleanRaceBoston, aes(x = crace, y = ddiscasn)) + 
+  geom_boxplot() +
+  ggtitle("Perceived Discrimination Faced by Asian People in Boston") +
+  ylab("Discrimination Experienced") +
+  xlab("Race") +
+  theme_bw() +
+  coord_cartesian(ylim = c(4,1)) +
+  scale_y_continuous(breaks = seq(1,4,1), labels = c("A lot", "Some", "Only a Little", "None at All"))
+
+
+ggplot(data = cleanRaceBoston, aes(x = crace, y = ddischis)) + 
+  geom_boxplot() +
+  ggtitle("Perceived Discrimination Faced by Hispanic People in Boston") +
+  ylab("Discrimination Experienced") +
+  xlab("Race") +
+  theme_bw() +
+  coord_cartesian(ylim = c(4,1)) +
+  scale_y_continuous(breaks = seq(1,4,1), labels = c("A lot", "Some", "Only a Little", "None at All"))
+
+
+```
+
+```{r}
+ggplot(data = cleanRaceBoston, aes(x=crespage, y=ddiscblk, fill = crace)) +
+  geom_point() +
+  scale_fill_manual(values = c("blue", "red", "green", "black")) +
+  scale_y_reverse() +
+  theme_bw() +
+  xlab("Respondent Age") +
+  ylab("Discrimination Score") +
+  ggtitle("Discrimination Score by Race and Age")
+```
+```{r}
+cleanRaceBoston$crace <- factor(cleanRaceBoston$crace)
+
+ggplot(data = cleanRaceBoston, aes(x = crespage, y = efaminc, color = crace)) +
+  geom_jitter(size = 1.2, alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, aes(group = crace)) +
+  scale_color_manual(values = c("blue", "red", "green3", "grey40")) +
+  theme_bw() +
+  xlab("Respondent Age") +
+  ylab("Income Level") +
+  ggtitle("Income By Race and Age in Boston") +
+  scale_y_continuous(breaks = seq(0, 20, 5), labels = c("$0", "$20K-$25K", "$45K-$50K", "$70K-$80K", "$150K+")) +
+  labs(color = "Race")
+```
+```{r}
+#Race
+raceSum <- cleanRaceBoston %>%
+  group_by(crace) %>%
+  summarize(prop = n() / nrow(cleanRaceBoston))
+
+ggplot(data = raceSum, aes (x = crace, y = prop)) +
+  geom_col(fill = "pink") +
+  ggtitle("Racial Proportion of Sample") + 
+  xlab("Race") +
+  ylab("Proportion of Sample") +
+  theme_bw()
+```
+
+```{r}
+#Age
+ggplot(data = cleanRaceBoston, aes(x = crespage)) + 
+  geom_density(fill = "lightblue") +
+  ggtitle("Age Density of Respondents") +
+  xlab("Age") +
+  ylab("Density") +
+  theme_bw()
+```
+
+# Moving? 
